@@ -1,0 +1,8 @@
+lca_config.json
+lca_cron.log
+lca_status_log.txt
+day075_search_plan.csv
+lca_check_notify.py
+lca_check_prompt.txt
+__pycache__/
+*.pyc
