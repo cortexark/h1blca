@@ -12,6 +12,27 @@ pip install playwright
 playwright install chromium
 ```
 
+## Don't Know Your Case Number?
+
+Most employers never share the LCA case number with the employee. You can find it yourself in 3 ways:
+
+**Option 1 — Ask HR or your attorney**
+Just ask: *"Can you share my LCA case number so I can track it myself?"* It's your case — you're entitled to know it.
+
+**Option 2 — Use the finder agent**
+If you know your employer name, job title, and roughly when it was filed, run:
+
+```bash
+python3 lca_agent.py
+```
+
+It downloads the DOL quarterly disclosure file, searches by employer + job title + filing date, and returns your exact case number. No manual searching needed.
+
+**Option 3 — Search the DOL disclosure file manually**
+DOL publishes every LCA filed in quarterly Excel files at [dol.gov/agencies/eta/foreign-labor/performance](https://www.dol.gov/agencies/eta/foreign-labor/performance). Filter by employer name and filing date to find your case number.
+
+---
+
 ## Quick Start
 
 ```bash
