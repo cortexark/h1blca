@@ -1,14 +1,15 @@
-# LCA Status Monitor
+# H-1B LCA & FedEx Tracker
 
-Automatically checks your H-1B LCA case status on the [FLAG DOL portal](https://flag.dol.gov/case-status-search) and sends email + SMS alerts when it gets certified.
+Automatically monitors your H-1B LCA case status on the [FLAG DOL portal](https://flag.dol.gov/case-status-search) **and** tracks FedEx shipments (petition to USCIS, documents from attorney). Sends email + direct SMS alerts on every status change.
 
 ## Requirements
 
 - Python 3.8+
 - [Playwright](https://playwright.dev/python/) for browser automation
+- [Twilio](https://twilio.com) *(optional — for direct SMS, free trial available)*
 
 ```bash
-pip install playwright
+pip install playwright twilio
 playwright install chromium
 ```
 
@@ -45,23 +46,41 @@ First run walks you through a one-time setup — no config files to edit manuall
 
 ## Setup
 
-You'll be asked for:
+```bash
+python3 lca_notify_direct.py
+```
 
-1. **LCA case number** — format `I-200-YYDDD-XXXXXX` (from your employer or FLAG portal)
-2. **Employer name and job title** — for the notification message
-3. **Filing date** — the date your employer submitted the LCA
-4. **Notification mode** — choose one:
-   - **SMTP** *(recommended — no extra dependencies)*: uses Gmail with an [App Password](https://myaccount.google.com/apppasswords)
-   - **gmail-tools**: uses the [gmail-tools-mcp](https://github.com/jasonm/gmail-tools-mcp) library
+First run walks you through a one-time setup. You'll be asked for:
+
+1. **LCA case number** — format `I-200-YYDDD-XXXXXX`
+2. **Employer name and job title** — for notification messages
+3. **Filing date**
+4. **Email mode** — SMTP (Gmail App Password) or gmail-tools-mcp
 5. **Email addresses** to notify
-6. **Phone numbers** for SMS alerts (T-Mobile, AT&T, Verizon, or Sprint)
-7. **Check schedule** — the times you want automated checks to run
+6. **SMS mode** — choose one:
+   - **Twilio** *(recommended)*: direct SMS, free trial at twilio.com — needs Account SID, Auth Token, phone number
+   - **Gateway**: email-to-carrier (no account needed — `number@tmomail.net` etc.)
+7. **FedEx tracking numbers** — add any shipments to track (e.g. H-1B petition to USCIS)
+8. **Check schedule** — times to run automated checks
 
 Config is saved to `lca_config.json` (gitignored — your personal info never gets committed).
 
 To change any setting later:
 ```bash
 python3 lca_notify_direct.py --setup
+```
+
+## Usage
+
+```bash
+# Check everything (LCA + FedEx)
+python3 lca_notify_direct.py
+
+# Check LCA only
+python3 lca_notify_direct.py --lca-only
+
+# Check FedEx packages only
+python3 lca_notify_direct.py --fedex-only
 ```
 
 ## Automating with Cron
@@ -84,10 +103,17 @@ Example schedule (times in PT):
 
 ## How It Works
 
-1. Playwright opens a headless browser and searches the FLAG DOL portal for your case number
-2. Parses the status from the results table (`IN PROCESS` → `CERTIFIED`)
-3. Sends an email and optional SMS to everyone on your list
-4. Logs the result to `lca_status_log.txt`
+**LCA tracking:**
+1. Playwright opens a headless browser → searches the FLAG DOL portal for your case number
+2. Parses the status (`IN PROCESS` → `CERTIFIED`)
+3. Sends email + SMS notification
+4. Logs result to `lca_status_log.txt`
+
+**FedEx tracking:**
+1. Playwright scrapes fedex.com/tracking for each configured tracking number
+2. Compares new status to last known status (saved in config)
+3. Sends email + SMS **only when status changes** — no spam on unchanged packages
+4. Detects key milestones: `Out for Delivery`, `Delivered`
 
 ## LCA Timeline
 
@@ -105,7 +131,9 @@ Once certified, your employer can file the H-1B petition (Form I-129) with USCIS
 | File | Purpose |
 |------|---------|
 | `check_lca_status.py` | Scrapes FLAG DOL portal, returns JSON status |
-| `lca_notify_direct.py` | Main script — checks status and sends notifications |
+| `fedex_tracker.py` | Scrapes FedEx tracking page, returns JSON status |
+| `lca_notify_direct.py` | Main script — checks LCA + FedEx, sends notifications |
+| `sms_twilio.py` | Twilio SMS sender module |
 | `lca_cron_run.sh` | Cron wrapper |
 | `lca_config.json` | Your personal config (auto-created, gitignored) |
 | `lca_status_log.txt` | Run history log (gitignored) |
