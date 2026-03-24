@@ -6,9 +6,7 @@ Notification modes:
   smtp        — plain SMTP via Gmail (no extra dependencies)
   gmail-tools — uses gmail-tools-mcp library (requires MCP setup)
 
-SMS modes:
-  twilio      — direct SMS via Twilio (recommended)
-  gateway     — email-to-carrier gateway (no account needed, less reliable)
+SMS is sent via email-to-carrier gateway (no account needed).
 
 First run creates lca_config.json with your settings.
 
@@ -39,11 +37,7 @@ def load_or_create_config(force_setup: bool = False) -> dict:
     if CONFIG_FILE.exists() and not force_setup:
         with open(CONFIG_FILE) as f:
             cfg = json.load(f)
-        # Migrate old configs that lack fedex / twilio blocks
         cfg.setdefault("fedex_packages", [])
-        cfg.setdefault("mobile_numbers", [])
-        cfg.setdefault("sms_mode", "gateway")
-        cfg.setdefault("twilio", {})
         return cfg
 
     print("=== LCA Monitor Setup ===\n")
@@ -75,36 +69,24 @@ def load_or_create_config(force_setup: bool = False) -> dict:
     emails_input = input("\nEmail addresses to notify (comma-separated): ").strip()
     emails = [e.strip() for e in emails_input.split(",") if e.strip()]
 
-    # ── SMS mode ────────────────────────────────────────────────────────────
-    print("\nSMS notification mode:")
-    print("  1. twilio  — direct SMS via Twilio (reliable, needs free account)")
-    print("  2. gateway — email-to-carrier (no account needed, may be delayed)")
-    sms_choice = input("Choose [1/2]: ").strip()
-    sms_mode = "twilio" if sms_choice == "1" else "gateway"
-
-    twilio_cfg, mobile_numbers, sms_numbers = {}, [], []
-
-    if sms_mode == "twilio":
-        from sms_twilio import setup_twilio
-        tmp = setup_twilio({})
-        twilio_cfg    = tmp["twilio"]
-        mobile_numbers = tmp["mobile_numbers"]
-    else:
-        sms_input = input("\nPhone numbers for SMS (comma-separated, or blank to skip): ").strip()
-        if sms_input:
-            carrier_map = {
-                "1": ("T-Mobile", "tmomail.net"),
-                "2": ("AT&T",     "txt.att.net"),
-                "3": ("Verizon",  "vtext.com"),
-                "4": ("Sprint",   "messaging.sprintpcs.com"),
-            }
-            print("Carrier: 1=T-Mobile  2=AT&T  3=Verizon  4=Sprint")
-            carrier_choice = input("Carrier for all numbers [1]: ").strip() or "1"
-            _, gateway_domain = carrier_map.get(carrier_choice, ("T-Mobile", "tmomail.net"))
-            for num in sms_input.split(","):
-                digits = "".join(c for c in num.strip() if c.isdigit())
-                if digits:
-                    sms_numbers.append(f"{digits}@{gateway_domain}")
+    # ── SMS via carrier gateway ─────────────────────────────────────────────
+    sms_mode = "gateway"
+    sms_numbers = []
+    sms_input = input("\nPhone numbers for SMS (comma-separated, or blank to skip): ").strip()
+    if sms_input:
+        carrier_map = {
+            "1": ("T-Mobile", "tmomail.net"),
+            "2": ("AT&T",     "txt.att.net"),
+            "3": ("Verizon",  "vtext.com"),
+            "4": ("Sprint",   "messaging.sprintpcs.com"),
+        }
+        print("Carrier: 1=T-Mobile  2=AT&T  3=Verizon  4=Sprint")
+        carrier_choice = input("Carrier for all numbers [1]: ").strip() or "1"
+        _, gateway_domain = carrier_map.get(carrier_choice, ("T-Mobile", "tmomail.net"))
+        for num in sms_input.split(","):
+            digits = "".join(c for c in num.strip() if c.isdigit())
+            if digits:
+                sms_numbers.append(f"{digits}@{gateway_domain}")
 
     # ── FedEx packages ──────────────────────────────────────────────────────
     print("\n=== FedEx Package Tracking ===")
@@ -128,20 +110,17 @@ def load_or_create_config(force_setup: bool = False) -> dict:
         schedule.append(entry)
 
     config = {
-        "mode":             mode,
-        "sms_mode":         sms_mode,
-        "case_number":      case_number,
-        "employer":         employer,
-        "job_title":        job_title,
-        "filing_date":      filing_date,
-        "emails":           emails,
-        "sms_numbers":      sms_numbers,      # gateway mode
-        "mobile_numbers":   mobile_numbers,   # twilio mode
-        "fedex_packages":   fedex_packages,
-        "schedule":         schedule,
-        "smtp":             smtp_config,
-        "gmail_tools":      gmail_tools_config,
-        "twilio":           twilio_cfg,
+        "mode":           mode,
+        "case_number":    case_number,
+        "employer":       employer,
+        "job_title":      job_title,
+        "filing_date":    filing_date,
+        "emails":         emails,
+        "sms_numbers":    sms_numbers,
+        "fedex_packages": fedex_packages,
+        "schedule":       schedule,
+        "smtp":           smtp_config,
+        "gmail_tools":    gmail_tools_config,
     }
 
     with open(CONFIG_FILE, "w") as f:
@@ -310,9 +289,6 @@ def _send_via_smtp(config: dict, subject: str, body: str, sms_body: str):
             server.sendmail(sender, recipient, msg.as_string())
             print(f"  Sent to {recipient}")
 
-    # Twilio SMS
-    _send_twilio(config, sms_body)
-
 
 async def _send_via_gmail_tools(config: dict, subject: str, body: str, sms_body: str):
     gc = config["gmail_tools"]
@@ -327,20 +303,6 @@ async def _send_via_gmail_tools(config: dict, subject: str, body: str, sms_body:
         result = await client.compose(sms, subject, sms_body)
         print(f"  SMS sent to {sms}: {result}")
 
-    _send_twilio(config, sms_body)
-
-
-def _send_twilio(config: dict, message: str):
-    """Send direct SMS via Twilio if configured."""
-    mobile_numbers = config.get("mobile_numbers", [])
-    if not mobile_numbers:
-        return
-    if not config.get("twilio", {}).get("account_sid"):
-        return
-
-    from sms_twilio import send_sms
-    print(f"  Sending Twilio SMS to {len(mobile_numbers)} number(s)...")
-    send_sms(mobile_numbers, message, config)
 
 
 # ── Logging ────────────────────────────────────────────────────────────────

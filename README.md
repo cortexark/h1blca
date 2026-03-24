@@ -6,10 +6,8 @@ Automatically monitors your H-1B LCA case status on the [FLAG DOL portal](https:
 
 - Python 3.8+
 - [Playwright](https://playwright.dev/python/) for browser automation
-- [Twilio](https://twilio.com) *(optional — for direct SMS, free trial available)*
-
 ```bash
-pip install playwright twilio
+pip install playwright
 playwright install chromium
 ```
 
@@ -57,9 +55,7 @@ First run walks you through a one-time setup. You'll be asked for:
 3. **Filing date**
 4. **Email mode** — SMTP (Gmail App Password) or gmail-tools-mcp
 5. **Email addresses** to notify
-6. **SMS mode** — choose one:
-   - **Twilio** *(recommended)*: direct SMS, free trial at twilio.com — needs Account SID, Auth Token, phone number
-   - **Gateway**: email-to-carrier (no account needed — `number@tmomail.net` etc.)
+6. **Phone numbers for SMS** — enter your mobile number, pick your carrier (T-Mobile, AT&T, Verizon, Sprint) — sent via email-to-carrier gateway, no account needed
 7. **FedEx tracking numbers** — add any shipments to track (e.g. H-1B petition to USCIS)
 8. **Check schedule** — times to run automated checks
 
@@ -133,7 +129,6 @@ Once certified, your employer can file the H-1B petition (Form I-129) with USCIS
 | `check_lca_status.py` | Scrapes FLAG DOL portal, returns JSON status |
 | `fedex_tracker.py` | Scrapes FedEx tracking page, returns JSON status |
 | `lca_notify_direct.py` | Main script — checks LCA + FedEx, sends notifications |
-| `sms_twilio.py` | Twilio SMS sender module |
 | `lca_cron_run.sh` | Cron wrapper |
 | `lca_config.json` | Your personal config (auto-created, gitignored) |
 | `lca_status_log.txt` | Run history log (gitignored) |
